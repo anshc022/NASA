@@ -4,6 +4,7 @@ export const API_CONFIG = {
   ENDPOINTS: {
     ROOT: '/',
     FARM_DATA: '/farm-data',
+    FARMS: '/farms',
     AUTH: {
       SIGNUP: '/auth/signup',
       LOGIN: '/auth/login',

@@ -231,11 +231,12 @@ class NASADataService {
   }
 
   /**
-   * Get date range for last N days
+   * Get date range for last N days (ending 3 days ago to avoid NASA data lag)
    */
   getDateRange(days: number): { start: string; end: string } {
     const end = new Date();
-    const start = new Date();
+    end.setDate(end.getDate() - 3); // NASA POWER data has ~3 day lag
+    const start = new Date(end);
     start.setDate(start.getDate() - days);
 
     return {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,45 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const usernameHint = useMemo(() => {
+    if (!username.trim()) return '';
+    if (username.length < 3) return 'Username must be at least 3 characters';
+    if (checkingUsername) return 'Checking availability…';
+    if (usernameAvailable === true) return 'Username is available';
+    if (usernameAvailable === false) return 'Username is already taken';
+    return '';
+  }, [username, checkingUsername, usernameAvailable]);
+
+  useEffect(() => {
+    // Debounced availability check
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const value = username.trim().toLowerCase();
+    if (!value || value.length < 3) {
+      setUsernameAvailable(null);
+      setCheckingUsername(false);
+      return;
+    }
+    setCheckingUsername(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/auth/username-available?username=${encodeURIComponent(value)}`);
+        const data = await res.json();
+        setUsernameAvailable(Boolean(data?.available));
+      } catch (e) {
+        // Network errors: do not block signup; just clear state
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    }, 450);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [username]);
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -77,14 +116,14 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
       // Get selected language from storage
       const language = await AsyncStorage.getItem('selectedLanguage') || 'en';
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/signup`, {
+  const response = await fetch(`${API_CONFIG.BASE_URL}/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email.trim(),
-          username: username.trim(),
+          email: email.trim().toLowerCase(),
+          username: username.trim().toLowerCase(),
           password: password,
           full_name: fullName.trim() || null,
           language: language,
@@ -93,7 +132,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
 
       const data = await response.json();
 
-      if (response.ok) {
+  if (response.ok) {
         // Save token and user data
         await AsyncStorage.setItem('accessToken', data.access_token);
         await AsyncStorage.setItem('userData', JSON.stringify(data.user));
@@ -104,7 +143,21 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
         // Navigate to Home
         navigation.replace('Main');
       } else {
-        Toast.show(data.detail || 'Signup failed', 'error');
+        // Friendly messages for common errors
+        if (response.status === 409) {
+          const msg = (data?.detail || '').toLowerCase();
+          if (msg.includes('email')) {
+            Toast.show('This email is already registered', 'error');
+          } else if (msg.includes('username')) {
+            Toast.show('This username is already taken', 'error');
+          } else {
+            Toast.show('Email or username already registered', 'error');
+          }
+        } else if (response.status === 400) {
+          Toast.show(data.detail || 'Invalid signup details', 'error');
+        } else {
+          Toast.show(data.detail || 'Signup failed', 'error');
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     } catch (error) {
@@ -182,7 +235,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: theme.colors.text }]}>
+                <Text style={[styles.label, { color: theme.colors.text }]}> 
                   Username *
                 </Text>
                 <View style={[styles.inputContainer, { 
@@ -192,7 +245,7 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                   <Ionicons 
                     name="person-outline" 
                     size={20} 
-                    color={theme.colors.textSecondary} 
+                    color={usernameAvailable === false ? '#ef4444' : usernameAvailable === true ? '#22c55e' : theme.colors.textSecondary}
                     style={styles.inputIcon}
                   />
                   <TextInput
@@ -205,6 +258,24 @@ export default function SignupScreen({ navigation }: SignupScreenProps) {
                     autoCorrect={false}
                   />
                 </View>
+                {!!usernameHint && (
+                  <Text
+                    style={{
+                      marginTop: 6,
+                      fontSize: 12,
+                      color:
+                        checkingUsername
+                          ? theme.colors.textSecondary
+                          : usernameAvailable === false
+                          ? '#ef4444'
+                          : usernameAvailable === true
+                          ? '#22c55e'
+                          : theme.colors.textSecondary,
+                    }}
+                  >
+                    {usernameHint}
+                  </Text>
+                )}
               </View>
 
               <View style={styles.inputGroup}>

@@ -49,3 +49,25 @@ class FarmDataResponse(BaseModel):
     parameters: Dict[str, Dict[str, float]]
     daily: List[DailyRecord]
     recommendation: RecommendationPayload
+
+
+# =====================
+# Farms (CRUD) Schemas
+# =====================
+
+class FarmCreate(BaseModel):
+    farm_name: Optional[str] = Field(default=None, max_length=120)
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    crop_type: Optional[str] = Field(default=None, max_length=60)
+    farm_size: Optional[str] = Field(default=None, max_length=60)
+
+
+class FarmResponse(BaseModel):
+    id: int
+    farm_name: Optional[str]
+    latitude: float
+    longitude: float
+    crop_type: Optional[str]
+    farm_size: Optional[str]
+    created_at: str

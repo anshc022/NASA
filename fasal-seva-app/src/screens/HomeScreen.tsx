@@ -116,6 +116,11 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     navigation.navigate('Tutorial');
   };
 
+  const openMyFarms = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('MyFarms');
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}> 
@@ -254,6 +259,15 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
               size="medium"
               style={styles.secondaryButton}
               icon={<Ionicons name="help-circle" size={18} color={theme.colors.primary} />}
+            />
+
+            <Button
+              title="My Farms 📍"
+              onPress={openMyFarms}
+              variant="outline"
+              size="medium"
+              style={[styles.secondaryButton, { marginTop: 10 }]}
+              icon={<Ionicons name="location" size={18} color={theme.colors.primary} />}
             />
           </View>
 

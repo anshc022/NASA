@@ -10,6 +10,7 @@ import { BottomTabNavigator } from './BottomTabNavigator';
 import FarmSelectionScreen from '../screens/FarmSelectionScreen';
 import FarmDataScreen from '../screens/FarmDataScreen';
 import ResultsScreen from '../screens/ResultsScreen';
+import MyFarmsScreen from '../screens/MyFarmsScreen';
 
 const Stack = createStackNavigator();
 
@@ -65,6 +66,7 @@ export default function AppNavigator() {
       <Stack.Screen name="FarmSelection" component={FarmSelectionScreen} />
       <Stack.Screen name="FarmData" component={FarmDataScreen} />
       <Stack.Screen name="Results" component={ResultsScreen} />
+      <Stack.Screen name="MyFarms" component={MyFarmsScreen} />
     </Stack.Navigator>
   );
 }

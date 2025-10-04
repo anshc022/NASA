@@ -85,11 +85,12 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 def authenticate_user(username_or_email: str, password: str) -> Optional[dict]:
     """Authenticate a user and return user data if valid."""
-    # Try email first
-    user = UserDB.get_user_by_email(username_or_email)
+    identifier = username_or_email.strip().lower()
+    # Try email first (case-insensitive)
+    user = UserDB.get_user_by_email(identifier)
     if not user:
-        # Try username
-        user = UserDB.get_user_by_username(username_or_email)
+        # Try username (case-insensitive)
+        user = UserDB.get_user_by_username(identifier)
     
     if not user:
         return None

@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 // Screens
 import HomeScreen from '../screens/HomeScreen';
 import FarmDataScreen from '../screens/FarmDataScreen';
+import MyFarmsScreen from '../screens/MyFarmsScreen';
+import AddFarmScreen from '../screens/AddFarmScreen';
 import TutorialScreen from '../screens/TutorialScreen';
 import ResultsScreen from '../screens/ResultsScreen';
 
@@ -130,7 +132,7 @@ export const BottomTabNavigator: React.FC = () => {
       />
       <Tab.Screen 
         name="Farm" 
-        component={FarmDataScreen as any}
+        component={MyFarmsScreen as any}
         options={{ tabBarLabel: 'Farm' }}
       />
       <Tab.Screen 

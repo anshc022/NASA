@@ -35,7 +35,16 @@ class NASAClient:
             "format": "JSON",
         }
         response = await self._client.get(self._settings.nasa_base_url, params=params)
-        response.raise_for_status()
+        
+        # Better error handling for common NASA API issues
+        if not response.is_success:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"NASA API error {response.status_code}: {response.text}")
+            if response.status_code == 422:
+                raise NASAClientError(f"Invalid request parameters. NASA API returned 422. Check date range and coordinates.")
+            else:
+                response.raise_for_status()
         data = response.json()
 
         try:

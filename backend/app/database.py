@@ -67,7 +67,7 @@ class UserDB:
             cursor.execute(
                 """INSERT INTO users (email, username, password_hash, full_name, language) 
                    VALUES (?, ?, ?, ?, ?)""",
-                (email, username, password_hash, full_name, language)
+                (email.lower(), username.lower(), password_hash, full_name, language)
             )
             user_id = cursor.lastrowid
             conn.commit()
@@ -81,7 +81,7 @@ class UserDB:
         """Get user by email."""
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        cursor.execute("SELECT * FROM users WHERE LOWER(email) = ?", (email.lower(),))
         user = cursor.fetchone()
         conn.close()
         return dict(user) if user else None
@@ -91,7 +91,7 @@ class UserDB:
         """Get user by username."""
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        cursor.execute("SELECT * FROM users WHERE LOWER(username) = ?", (username.lower(),))
         user = cursor.fetchone()
         conn.close()
         return dict(user) if user else None
