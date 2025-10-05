@@ -71,3 +71,58 @@ class FarmResponse(BaseModel):
     crop_type: Optional[str]
     farm_size: Optional[str]
     created_at: str
+
+
+# =====================
+# Scenario and Progression Schemas
+# =====================
+
+class ScenarioAction(BaseModel):
+    id: str
+    name: str
+    description: str
+    cost_coins: int
+    success_rate: float
+    rewards: Dict[str, int]  # {"xp": 50, "coins": 100}
+
+
+class PlantScenario(BaseModel):
+    id: str
+    crop_id: str
+    scenario_type: str  # "drought", "pest", "disease", "fertilizer_shortage"
+    severity: str  # "low", "medium", "high"
+    description: str
+    impact_description: str
+    nasa_data_trigger: Dict[str, float]  # What NASA data triggered this
+    available_actions: List[ScenarioAction]
+    auto_resolve_time: Optional[int] = None  # hours until auto-resolve
+    active: bool = True
+    created_at: str
+
+
+class CompleteScenarioRequest(BaseModel):
+    action_id: str
+
+
+class PlayerProgress(BaseModel):
+    level: int
+    xp: int
+    coins: int
+    xp_to_next_level: int
+    total_scenarios_completed: int
+    successful_harvests: int
+
+
+class ShopItem(BaseModel):
+    id: str
+    name: str
+    description: str
+    cost_coins: int
+    category: str  # "tools", "seeds", "upgrades", "decorations"
+    effects: Dict[str, float]  # {"growth_bonus": 0.1, "disease_resistance": 0.2}
+    available: bool = True
+
+
+class PurchaseRequest(BaseModel):
+    item_id: str
+    quantity: int = 1

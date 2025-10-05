@@ -1,0 +1,682 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Touchable  const handleChallengePress = async (challenge: Challenge) => {
+    if (challenge.completed) {
+      Alert.alert('Already Completed! 🎉', 'You have already completed this challenge!');
+      return;
+    }
+
+    const progressPercentage = Math.min((challenge.progress / challenge.target) * 100, 100);
+    
+    if (progressPercentage >= 100) {
+      // Challenge is completable
+      Alert.alert(
+        'Challenge Complete! 🎉',
+        `Congratulations! You've completed "${challenge.title}".\n\nReward: ${challenge.reward_xp} XP + ${challenge.reward_coins} Coins`,
+        [
+          { text: 'Later', style: 'cancel' },
+          { 
+            text: 'Claim Reward', 
+            onPress: async () => {
+              try {
+                const result = await challengesAPI.completeChallenge(challenge.id);
+                if (result.success) {
+                  Alert.alert('Reward Claimed!', result.message);
+                  await loadChallenges(); // Refresh challenges
+                } else {
+                  Alert.alert('Error', result.message || 'Failed to claim reward');
+                }
+              } catch (error) {
+                console.error('Error completing challenge:', error);
+                Alert.alert('Error', 'Failed to complete challenge. Please try again.');
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      // Show progress details
+      Alert.alert(
+        challenge.title,
+        `${challenge.description}\n\nProgress: ${challenge.progress}/${challenge.target} (${Math.round(progressPercentage)}%)\nReward: ${challenge.reward_xp} XP + ${challenge.reward_coins} Coins${challenge.estimated_time ? `\nEstimated time: ${challenge.estimated_time}` : ''}`,
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
+  };feAreaView,
+  RefreshControl,
+  Animated,
+  Alert,
+} from 'react-native';
+import { useGame } from '../contexts/GameContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useColorScheme } from '../contexts/ThemeContext';
+import { getThemeColors } from '../constants/theme-colors';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import SimpleCard from '../components/SimpleCard';
+import { challengesAPI } from '../services/api';
+
+interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  progress: number;
+  target: number;
+  reward_xp: number;
+  reward_coins: number;
+  completed: boolean;
+  challenge_type: string;
+  category: string;
+  icon: string;
+  difficulty?: string;
+  estimated_time?: string;
+  deadline?: string;
+  progress_percentage: number;
+}
+
+interface ChallengesSummary {
+  total_active: number;
+  total_completed: number;
+  user_stats: {
+    total_plants: number;
+    total_waters: number;
+    total_fertilizes: number;
+    total_harvests: number;
+    current_streak: number;
+    level: number;
+  };
+}
+
+export default function ChallengesScreen() {
+  const { user } = useAuth();
+  const colorScheme = useColorScheme();
+  const colors = getThemeColors(colorScheme === 'dark');
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [summary, setSummary] = useState<ChallengesSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const isDark = colorScheme === 'dark';
+
+  useEffect(() => {
+    loadChallenges();
+  }, []);
+
+  const loadChallenges = async () => {
+    try {
+      setLoading(true);
+      const response = await challengesAPI.getChallenges();
+      
+      if (response.success) {
+        setChallenges(response.challenges || []);
+        setSummary(response.summary || null);
+      } else {
+        console.error('Failed to load challenges:', response.error);
+        Alert.alert('Error', 'Failed to load challenges. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error loading challenges:', error);
+      Alert.alert('Error', 'Unable to load challenges. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const categories = ['All', 'Daily', 'Weekly', 'Progress', 'Achievement'];
+
+  const filteredChallenges = selectedCategory === 'All' 
+    ? challenges 
+    : challenges.filter((c: Challenge) => c.category === selectedCategory || c.challenge_type === selectedCategory);
+
+  const activeChallenges = filteredChallenges.filter((c: Challenge) => !c.completed);
+  const completedChallenges = filteredChallenges.filter((c: Challenge) => c.completed);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadChallenges();
+    setRefreshing(false);
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'Easy': return ['#10B981', '#059669'];
+      case 'Medium': return ['#F59E0B', '#D97706'];
+      case 'Hard': return ['#EF4444', '#DC2626'];
+      default: return [colors.primary, colors.primary];
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Daily': return 'today';
+      case 'Weekly': return 'calendar';
+      case 'Monthly': return 'calendar-outline';
+      case 'Special': return 'star';
+      default: return 'trophy';
+    }
+  };
+
+  const handleChallengePress = (challenge: ExtendedChallenge) => {
+    if (challenge.completed) {
+      Alert.alert('Completed! 🎉', 'You already completed this challenge!');
+    } else {
+      Alert.alert(
+        challenge.title,
+        `${challenge.description}\n\nProgress: ${challenge.progress}/${challenge.target}\nReward: ${challenge.reward.xp} XP + ${challenge.reward.coins} Coins`,
+        [
+          { text: 'Close', style: 'cancel' },
+          { text: 'View Details', onPress: () => console.log('View challenge details') },
+        ]
+      );
+    }
+  };
+
+  const renderChallenge = (challenge: ExtendedChallenge, index: number) => {
+    const progress = (challenge.progress / challenge.target) * 100;
+    const isCompleted = challenge.completed;
+    const difficultyColors = getDifficultyColor(challenge.difficulty);
+
+    return (
+      <Animated.View
+        key={challenge.id}
+        style={[
+          { opacity: fadeAnim },
+          { transform: [{ translateY: fadeAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [50, 0],
+          }) }] }
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.modernChallengeCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+            isCompleted && { borderColor: colors.success, backgroundColor: isDark ? '#0F3F3C' : '#F0FDF4' }
+          ]}
+          onPress={() => handleChallengePress(challenge)}
+          activeOpacity={0.8}
+        >
+          {/* Challenge Header */}
+          <View style={styles.challengeHeader}>
+            <View style={styles.challengeIconContainer}>
+              <LinearGradient
+                colors={isCompleted ? [colors.success, colors.success] : [difficultyColors[0], difficultyColors[1]]}
+                style={styles.challengeIconGrad}
+              >
+                <Ionicons 
+                  name={isCompleted ? 'checkmark-circle' : challenge.icon as any} 
+                  size={24} 
+                  color="white" 
+                />
+              </LinearGradient>
+              
+              {challenge.isNew && (
+                <View style={[styles.newBadge, { backgroundColor: colors.warning }]}>
+                  <Text style={styles.newBadgeText}>NEW</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.challengeMetaInfo}>
+              <View style={styles.challengeTitleRow}>
+                <Text style={[styles.modernChallengeTitle, { color: colors.text }]}>
+                  {challenge.title}
+                </Text>
+                <View style={styles.categoryBadge}>
+                  <Ionicons name={getCategoryIcon(challenge.category) as any} size={12} color={colors.primary} />
+                  <Text style={[styles.categoryText, { color: colors.primary }]}>
+                    {challenge.category}
+                  </Text>
+                </View>
+              </View>
+              
+              <Text style={[styles.modernChallengeDesc, { color: colors.textSecondary }]}>
+                {challenge.description}
+              </Text>
+            </View>
+
+            <View style={styles.difficultyContainer}>
+              <Text style={[styles.difficultyText, { color: difficultyColors[0] }]}>
+                {challenge.difficulty}
+              </Text>
+              {challenge.daysLeft && !isCompleted && (
+                <Text style={[styles.daysLeftText, { color: colors.textSecondary }]}>
+                  {challenge.daysLeft}d left
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Progress Section */}
+          <View style={styles.progressSection}>
+            <View style={styles.progressInfo}>
+              <Text style={[styles.progressLabel, { color: colors.textSecondary }]}>
+                Progress
+              </Text>
+              <Text style={[styles.progressNumbers, { color: colors.text }]}>
+                {challenge.progress}/{challenge.target}
+              </Text>
+            </View>
+            
+            <View style={[styles.modernProgressBar, { backgroundColor: colors.border }]}>
+              <Animated.View
+                style={[
+                  styles.modernProgressFill,
+                  {
+                    width: `${progress}%`,
+                    backgroundColor: isCompleted ? colors.success : difficultyColors[0],
+                  },
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Rewards Section */}
+          <View style={styles.rewardsSection}>
+            <View style={styles.rewardItem}>
+              <Ionicons name="star" size={16} color={colors.secondary} />
+              <Text style={[styles.rewardText, { color: colors.textSecondary }]}>
+                {challenge.reward.xp} XP
+              </Text>
+            </View>
+            <View style={styles.rewardItem}>
+              <Ionicons name="diamond" size={16} color={colors.success} />
+              <Text style={[styles.rewardText, { color: colors.textSecondary }]}>
+                {challenge.reward.coins} Coins
+              </Text>
+            </View>
+            
+            {isCompleted && (
+              <View style={[styles.completedBadge, { backgroundColor: colors.success }]}>
+                <Ionicons name="checkmark" size={12} color="white" />
+                <Text style={styles.completedText}>Completed</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Modern Header */}
+      <View style={[styles.modernHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={styles.headerContent}>
+          <Text style={[styles.modernTitle, { color: colors.text }]}>
+            🏆 Challenges
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Complete challenges to earn rewards!
+          </Text>
+        </View>
+
+        {/* Stats Cards */}
+        <View style={styles.statsRow}>
+          <SimpleCard
+            title="Active"
+            value={activeChallenges.length}
+            icon="flash"
+          />
+          <SimpleCard
+            title="Completed"
+            value={completedChallenges.length}
+            icon="checkmark-circle"
+          />
+          <SimpleCard
+            title="Rewards"
+            value={`${completedChallenges.reduce((sum, c) => sum + c.reward.xp, 0)} XP`}
+            icon="star"
+          />
+        </View>
+
+        {/* Category Filters */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesContainer}
+        >
+          {categories.map((category) => (
+            <TouchableOpacity
+              key={category}
+              style={[
+                styles.categoryButton,
+                { backgroundColor: selectedCategory === category ? colors.primary : colors.surface },
+                { borderColor: colors.border }
+              ]}
+              onPress={() => setSelectedCategory(category)}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={getCategoryIcon(category) as any} 
+                size={16} 
+                color={selectedCategory === category ? 'white' : colors.primary} 
+              />
+              <Text style={[
+                styles.categoryButtonText,
+                { color: selectedCategory === category ? 'white' : colors.primary }
+              ]}>
+                {category}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      <ScrollView 
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Active Challenges */}
+        {activeChallenges.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              🔥 Active Challenges ({activeChallenges.length})
+            </Text>
+            {activeChallenges.map((challenge, index) => renderChallenge(challenge, index))}
+          </View>
+        )}
+
+        {/* Completed Challenges */}
+        {completedChallenges.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              ✅ Completed ({completedChallenges.length})
+            </Text>
+            {completedChallenges.map((challenge, index) => renderChallenge(challenge, index + activeChallenges.length))}
+          </View>
+        )}
+
+        {/* Empty State */}
+        {activeChallenges.length === 0 && completedChallenges.length === 0 && (
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIconContainer, { backgroundColor: colors.surface }]}>
+              <Ionicons name="trophy-outline" size={60} color={colors.textSecondary} />
+            </View>
+            <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
+              No Challenges Available
+            </Text>
+            <Text style={[styles.emptyStateSubtext, { color: colors.textSecondary }]}>
+              {selectedCategory === 'All' 
+                ? 'Check back soon for new challenges to complete!' 
+                : `No ${selectedCategory.toLowerCase()} challenges available. Try another category.`
+              }
+            </Text>
+            <TouchableOpacity
+              style={[styles.refreshButton, { backgroundColor: colors.primary }]}
+              onPress={onRefresh}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={20} color="white" />
+              <Text style={styles.refreshButtonText}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Bottom spacing */}
+        <View style={{ height: 30 }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  modernHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerContent: {
+    marginBottom: 20,
+  },
+  modernTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  categoriesContainer: {
+    paddingHorizontal: 4,
+    gap: 10,
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  categoryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  modernChallengeCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  challengeHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  challengeIconContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  challengeIconGrad: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  newBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  newBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  challengeMetaInfo: {
+    flex: 1,
+  },
+  challengeTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  modernChallengeTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    flex: 1,
+    marginRight: 12,
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    gap: 4,
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modernChallengeDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  difficultyContainer: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  daysLeftText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  progressSection: {
+    marginBottom: 16,
+  },
+  progressInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  progressNumbers: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  modernProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  modernProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  rewardsSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  rewardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rewardText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  completedText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  emptyIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  emptyStateTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 8,
+  },
+  refreshButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});

@@ -57,6 +57,44 @@ class NASAClient:
             raise NASAClientError("Unexpected response from NASA POWER API") from exc
         return parameter_data
 
+    def get_farm_data(self, latitude: float, longitude: float) -> Dict | None:
+        """Get farm data for a location (synchronous wrapper for compatibility)."""
+        import asyncio
+        from datetime import datetime, timedelta
+        
+        try:
+            # Get recent data with proper lag (NASA has 2-3 day delay)
+            end_date = (datetime.now() - timedelta(days=3)).strftime("%Y%m%d")
+            start_date = (datetime.now() - timedelta(days=10)).strftime("%Y%m%d")
+            
+            # Run the async method
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                parameter_data = loop.run_until_complete(
+                    self.fetch_daily_power_data(
+                        lat=latitude, 
+                        lon=longitude, 
+                        start=start_date, 
+                        end=end_date
+                    )
+                )
+                
+                # Convert to expected format
+                return {
+                    "properties": {
+                        "parameter": parameter_data
+                    }
+                }
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error fetching farm data: {e}")
+            return None
+
     async def close(self) -> None:
         await self._client.aclose()
 

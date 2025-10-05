@@ -67,6 +67,135 @@ class AIAdvisor:
                 crop_type=crop_type,
             )
 
+    async def generate_educational_content(
+        self,
+        user_plants: list[Dict[str, Any]],
+        nasa_data: Dict[str, Any],
+        location: Dict[str, float],
+        *,
+        user_level: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Generate personalized educational content based on user's plants and NASA data."""
+        
+        if not self._is_ai_enabled():
+            return self._generate_static_educational_content(user_plants, nasa_data, location)
+        
+        try:
+            payload = self._build_educational_prompt(user_plants, nasa_data, location, user_level)
+            
+            provider = self.settings.ai_provider.lower() if self.settings.ai_provider else None
+            if provider == "ollama":
+                ai_response = await _call_ollama_educational(
+                    base_url=self.settings.ollama_base_url,
+                    model=self.settings.ollama_model,
+                    payload=payload,
+                )
+            else:
+                raise RuntimeError("Unsupported AI provider for educational content")
+            
+            return ai_response
+            
+        except Exception as exc:
+            logger.info("AI educational content generation failed (%s). Using static content.", exc)
+            return self._generate_static_educational_content(user_plants, nasa_data, location)
+
+    def _generate_static_educational_content(
+        self, 
+        user_plants: list[Dict[str, Any]], 
+        nasa_data: Dict[str, Any], 
+        location: Dict[str, float]
+    ) -> Dict[str, Any]:
+        """Generate basic educational content without AI when AI is unavailable."""
+        
+        # Analyze user's plant health and NASA data
+        avg_health = sum(plant.get('health', 50) for plant in user_plants) / len(user_plants) if user_plants else 50
+        avg_temp = nasa_data.get('temperature', 25)
+        rainfall = nasa_data.get('precipitation', 2)
+        
+        # Create basic educational content
+        facts = []
+        quizzes = []
+        missions = []
+        
+        # Generate location-specific fact
+        climate_type = "temperate" if 10 <= avg_temp <= 30 else "extreme"
+        water_status = "wet" if rainfall > 3 else "dry" if rainfall < 1 else "moderate"
+        
+        facts.append({
+            "id": "location_climate",
+            "title": f"🌍 Your Local Climate",
+            "content": f"Your location shows {climate_type} temperatures ({avg_temp:.1f}°C) with {water_status} conditions ({rainfall:.1f}mm/day). NASA satellites monitor these conditions globally to help farmers optimize their growing strategies.",
+            "category": "Personal",
+            "xp": 20,
+            "is_personalized": True
+        })
+        
+        # Generate plant-specific content
+        if user_plants:
+            plant_names = [plant.get('name', 'Unknown') for plant in user_plants[:3]]
+            health_status = "thriving" if avg_health > 80 else "struggling" if avg_health < 50 else "developing"
+            
+            facts.append({
+                "id": "user_plants",
+                "title": f"🌱 Your {', '.join(plant_names)} Analysis",
+                "content": f"Your plants are currently {health_status} (avg health: {avg_health:.0f}%). NASA data shows this correlates with local temperature and moisture patterns. Learn how satellite monitoring helps predict plant stress before it's visible!",
+                "category": "Personal",
+                "xp": 25,
+                "is_personalized": True
+            })
+        
+        return {
+            "facts": facts,
+            "quizzes": quizzes,
+            "missions": missions,
+            "personalization_level": "basic"
+        }
+
+    def _build_educational_prompt(
+        self,
+        user_plants: list[Dict[str, Any]],
+        nasa_data: Dict[str, Any],
+        location: Dict[str, float],
+        user_level: Optional[int] = None,
+    ) -> str:
+        """Build AI prompt for educational content generation."""
+        
+        plant_summary = []
+        for plant in user_plants[:5]:  # Limit to 5 plants for prompt efficiency
+            plant_summary.append(
+                f"- {plant.get('name', 'Unknown')}: {plant.get('health', 'N/A')}% health, "
+                f"{plant.get('water_level', 'N/A')}% water, {plant.get('fertilizer_level', 'N/A')}% fertilizer"
+            )
+        
+        plant_text = "\n".join(plant_summary) if plant_summary else "No plants currently growing"
+        
+        level_text = f"User level: {user_level}" if user_level else "Beginner level"
+        
+        return f"""
+You are a NASA Earth science educator creating personalized learning content. Generate educational content that connects the user's real farming data with NASA satellite observations.
+
+USER'S LOCATION: Lat {location.get('lat', 'Unknown')}, Lon {location.get('lon', 'Unknown')}
+
+NASA DATA FOR THIS LOCATION:
+- Temperature: {nasa_data.get('temperature', 'N/A')}°C
+- Precipitation: {nasa_data.get('precipitation', 'N/A')} mm/day  
+- Humidity: {nasa_data.get('humidity', 'N/A')}%
+- Solar Radiation: {nasa_data.get('solar_radiation', 'N/A')} kWh/m²
+
+USER'S PLANTS:
+{plant_text}
+
+{level_text}
+
+Create educational content in JSON format with:
+1. "facts": Array of 3-4 personalized learning facts that connect NASA data to their specific plants and location
+2. "interactive_missions": Array of 2-3 hands-on activities using their plant data
+3. "climate_insights": Location-specific climate patterns and how they affect the user's crops
+4. "sustainability_tips": Actionable advice based on their current plant health and local conditions
+
+Make it engaging, scientifically accurate, and directly relevant to their farming experience. Include XP rewards (15-30 points per item).
+        """
+
     def _is_ai_enabled(self) -> bool:
         provider = self.settings.ai_provider
         if not provider:
@@ -135,6 +264,48 @@ async def _call_ollama(base_url: str, model: str, payload: str) -> Dict[str, Any
         )
         response.raise_for_status()
         return _parse_ollama_chat(response.json())
+
+
+async def _call_ollama_educational(base_url: str, model: str, payload: str) -> Dict[str, Any]:
+    """Call Ollama specifically for educational content generation."""
+    base = base_url.rstrip("/")
+    timeout = httpx.Timeout(90.0)  # Longer timeout for educational content
+
+    async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+        await _ensure_ollama_model_available(client, base, model)
+        
+        try:
+            response = await client.post(
+                f"{base}/api/chat",
+                json={
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a NASA Earth science educator. Return educational content "
+                                "in strict JSON format with keys: 'facts' (array), 'interactive_missions' (array), "
+                                "'climate_insights' (object), and 'sustainability_tips' (array). "
+                                "Each fact/mission should have: id, title, content, category, xp, is_personalized."
+                            ),
+                        },
+                        {"role": "user", "content": payload},
+                    ],
+                    "format": "json",
+                    "stream": False,
+                },
+            )
+            response.raise_for_status()
+            return _parse_ollama_chat(response.json())
+        except Exception as exc:
+            logger.error(f"Ollama educational content generation failed: {exc}")
+            # Return fallback structure
+            return {
+                "facts": [],
+                "interactive_missions": [],
+                "climate_insights": {"summary": "NASA data analysis unavailable"},
+                "sustainability_tips": []
+            }
 
 
 def _parse_ollama_generate(data: Any) -> Dict[str, Any]:

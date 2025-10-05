@@ -26,8 +26,12 @@ class UserResponse(BaseModel):
     username: str
     full_name: Optional[str]
     language: str
+    coins: int = 0
+    xp: int = 0
+    welcome_bonus_claimed: bool = False
     created_at: str
     last_login: Optional[str]
+    avatar_url: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -40,3 +44,10 @@ class TokenResponse(BaseModel):
 class LanguageUpdate(BaseModel):
     """Schema for updating user language."""
     language: str = Field(..., pattern="^(en|hi|es|pt)$")
+
+
+class WelcomeBonusResponse(BaseModel):
+    """Schema for welcome bonus claim."""
+    message: str
+    coins_awarded: int
+    total_coins: int

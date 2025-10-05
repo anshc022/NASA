@@ -27,8 +27,8 @@ class Settings(BaseSettings):
         description="Base URL for local Ollama instance",
     )
     ollama_model: str = Field(
-        default="gemma:3.1b",
-        description="Ollama model tag to use (e.g. gemma:3.1b)",
+        default="gemma2:2b",
+        description="Ollama model tag to use (e.g. gemma2:2b, gemma3:1b)",
     )
 
     class Config:

@@ -80,6 +80,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     
     # Remove password hash from response
     user.pop("password_hash", None)
+    user["coins"] = int(user.get("coins") or 0)
+    user["welcome_bonus_claimed"] = bool(user.get("welcome_bonus_claimed"))
     return user
 
 
@@ -103,4 +105,6 @@ def authenticate_user(username_or_email: str, password: str) -> Optional[dict]:
     
     # Remove password hash before returning
     user.pop("password_hash", None)
+    user["coins"] = int(user.get("coins") or 0)
+    user["welcome_bonus_claimed"] = bool(user.get("welcome_bonus_claimed"))
     return user
