@@ -112,18 +112,7 @@ graph TB
     Student -.->|Learning Progress| Achievement
     Astronaut -.->|Space Scenarios| Scenarios
 
-    %% Styling
-    classDef external fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef backend fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    classDef game fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef frontend fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef user fill:#fce4ec,stroke:#880e4f,stroke-width:2px
 
-    class NASA,Weather,Geo external
-    class API,NASA_Client,AI_Engine,Auth,DB backend
-    class Achievement,Avatar,Scenarios,Leaderboard game
-    class Mobile,Dashboard,Learning,Social frontend
-    class Farmer,Student,Astronaut user
 ```
 
 ### Data Processing Pipeline
@@ -196,14 +185,6 @@ graph LR
     B2 --> C2
     B3 --> C3
     B4 --> C4
-
-    classDef game fill:#fff3e0,stroke:#e65100,stroke-width:3px
-    classDef nasa fill:#e1f5fe,stroke:#01579b,stroke-width:3px
-    classDef ui fill:#e8f5e8,stroke:#1b5e20,stroke-width:3px
-
-    class A1,A2,A3,A4 game
-    class B1,B2,B3,B4 nasa
-    class C1,C2,C3,C4 ui
 ```
 
 ### Backend (FastAPI)
